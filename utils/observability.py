@@ -52,8 +52,10 @@ def age_seconds(timestamp: datetime | None, now: datetime | None = None) -> floa
     current = now or datetime.now(timezone.utc)
     return max(0.0, (current - timestamp).total_seconds())
 
-def nearest_level(price: float, bands: dict[str, float], levels: list[float]) -> PriceLocation | None:
+def nearest_level(price: float, bands: dict[str, float], levels: list[float], basis: float | None = None) -> PriceLocation | None:
     candidates: list[PriceLocation] = []
+    if basis is not None:
+        candidates.append(PriceLocation('MIDDLE', 0.0, basis, price - basis, ''))
     for level in levels:
         for side in ('UPPER', 'LOWER'):
             key = f'{side.lower()}_{level:.3f}'
@@ -99,20 +101,23 @@ def fbb_block(symbol: str, timeframe: str, cfg: Any, latest: dict[str, Any]) -> 
     return section(SECTIONS['FBB'], body)
 
 def level_map_block(symbol: str, timeframe: str, price: float, bands: dict[str, float], levels: list[float], basis: float | None) -> str:
-    lines = [f'CurrentPrice={fmt_value(price)} | VWMA Basis={fmt_value(basis)} | Symbol={symbol} | Timeframe={timeframe}', '', 'UPPER:']
-    for level in levels:
+    trading_levels = [level for level in levels if round(level, 3) == 1.0]
+    lines = [f'CurrentPrice={fmt_value(price)} | VWMA Basis={fmt_value(basis)} | Symbol={symbol} | Timeframe={timeframe}', '', 'UPPER FBB 1.000:']
+    for level in trading_levels:
         value = bands.get(f'upper_{level:.3f}')
         lines.append(f'{level:.3f} = {fmt_value(value)} | distance = {fmt_value(None if value is None else price - value)}')
-    lines.extend(['', 'LOWER:'])
-    for level in levels:
+    lines.extend(['', 'MIDDLE VWMA BASIS:', f'basis = {fmt_value(basis)} | distance = {fmt_value(None if basis is None else price - basis)}'])
+    lines.extend(['', 'LOWER FBB 1.000:'])
+    for level in trading_levels:
         value = bands.get(f'lower_{level:.3f}')
         lines.append(f'{level:.3f} = {fmt_value(value)} | distance = {fmt_value(None if value is None else price - value)}')
-    closest = nearest_level(price, bands, levels)
+    closest = nearest_level(price, bands, trading_levels, basis)
     lines.extend(['', 'PRICE LOCATION:'])
     if closest is None:
         lines.append('Nearest FBB level = N/A | Distance=N/A | Status=NO_BANDS')
     else:
-        lines.append(f'Nearest FBB level = {closest.label} | LevelPrice={fmt_value(closest.price)} | Distance={fmt_value(closest.distance)} | Status={closest.status}')
+        label = 'VWMA BASIS' if closest.side == 'MIDDLE' else closest.label
+        lines.append(f'Nearest FBB level = {label} | LevelPrice={fmt_value(closest.price)} | Distance={fmt_value(closest.distance)} | Status={closest.status}')
     return section(SECTIONS['LOCATION'], '\n'.join(lines))
 
 def event_block(event: FBBLevelEvent) -> str:

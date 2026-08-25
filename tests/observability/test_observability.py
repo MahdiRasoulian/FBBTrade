@@ -16,18 +16,14 @@ class Cfg:
     source = 'hlc3'
     multiplier = 3.0
     std_ddof = 0
-    levels = [0.236, 0.618, 1.0]
+    levels = [1.0]
 
 def test_sectioned_observability_blocks_include_price_location_and_fbb_values():
     latest = {
         'basis': 100.0,
         'std': 2.0,
         'deviation': 6.0,
-        'upper_0.236': 101.416,
-        'upper_0.618': 103.708,
         'upper_1.000': 106.0,
-        'lower_0.236': 98.584,
-        'lower_0.618': 96.292,
         'lower_1.000': 94.0,
     }
     bands = {key: value for key, value in latest.items() if key.startswith(('upper_', 'lower_'))}
@@ -38,10 +34,12 @@ def test_sectioned_observability_blocks_include_price_location_and_fbb_values():
 
     assert SECTIONS['FBB'] in fbb
     assert 'VWMA=100.00000' in fbb
-    assert 'U0.618=103.70800' in fbb
+    assert 'U1.000=106.00000' in fbb
     assert SECTIONS['LOCATION'] in location
-    assert 'Nearest FBB level = LOWER 0.236' in location
-    assert nearest_level(98.7, bands, Cfg.levels).status == 'NEAR_LEVEL'
+    assert 'Nearest FBB level = VWMA BASIS' in location
+    assert nearest_level(98.7, bands, Cfg.levels, latest['basis']).status == 'BETWEEN_LEVELS'
+    assert '0.236' not in location
+    assert '0.618' not in location
 
 def test_market_and_fbb_event_blocks_are_sectioned_and_deterministic():
     now = datetime(2026, 8, 25, 10, 0, tzinfo=timezone.utc)
@@ -52,8 +50,8 @@ def test_market_and_fbb_event_blocks_are_sectioned_and_deterministic():
     assert 'Bid=100.0' in market
     assert 'HasFormingCandle=True' in market
 
-    detector = FBBLevelDetector('GOLD', 'M5', [0.618])
-    event = detector.detect(103.8, {'upper_0.618': 103.7, 'lower_0.618': 96.3}, now)[0]
+    detector = FBBLevelDetector('GOLD', 'M5', [1.0])
+    event = detector.detect(106.1, {'upper_1.000': 106.0, 'lower_1.000': 94.0}, now)[0]
     rendered = event_block(event)
     assert SECTIONS['EVENTS'] in rendered
     assert 'Event=ENTERED' in rendered

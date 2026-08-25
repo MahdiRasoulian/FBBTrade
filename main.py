@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import signal
+from importlib import import_module, util
 from dataclasses import dataclass
 from typing import Any
 
@@ -115,7 +116,7 @@ class TradingRuntime:
         bands = {k: v for k, v in latest.items() if k.startswith(('upper_', 'lower_')) and v is not None}
         tolerance = rt.candles.atr(closed) * float(getattr(rt.config.entry, 'atr_tolerance_multiplier', 0.0))
         bands['atr_tolerance'] = tolerance
-        closest = nearest_level(tick.mid, bands, rt.config.fbb.levels)
+        closest = nearest_level(tick.mid, bands, rt.config.fbb.levels, latest.get('basis'))
         entry_state = rt.entry.state_snapshot(tick.mid, bands, tick.timestamp)
         self._symbol_state[symbol] = {'symbol': symbol, 'mt5_state': 'CONNECTED' if self.provider.is_connected() else 'DISCONNECTED', 'mode': self.global_cfg.execution.get('mode', 'PAPER'), 'price': tick.mid, 'spread': tick.spread, 'basis': latest.get('basis'), 'nearest_level': None if closest is None else closest.label, 'nearest_distance': None if closest is None else closest.distance, 'location_status': None if closest is None else closest.status, **entry_state, 'last_closed_candle': last_closed, 'last_successful_cycle': utc_now(), 'pending_proposals': 0}
         if is_new_closed:
@@ -150,11 +151,10 @@ class TradingRuntime:
                 log_event(logger, logging.INFO, 'TELEGRAM', 'Proposal notification sent or printed', symbol=symbol, proposal_id=proposal.proposal_id)
 
 def _load_dotenv():
-    try:
-        from dotenv import load_dotenv
-        load_dotenv()
-    except ImportError:
-        pass
+    if util.find_spec('dotenv') is None:
+        return
+    load_dotenv = import_module('dotenv').load_dotenv
+    load_dotenv()
 
 def main():
     _load_dotenv()

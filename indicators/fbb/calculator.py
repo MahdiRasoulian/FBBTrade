@@ -4,7 +4,7 @@ from .models import FBBResult
 class FBBCalculator:
     """TradingView parity: HLC3=(H+L+C)/3, VWMA=sum(src*volume)/sum(volume), stdev uses population ddof=0 by default."""
     def __init__(self, length:int=200, multiplier:float=3.0, levels:list[float]|None=None, std_ddof:int=0):
-        self.length=length; self.multiplier=multiplier; self.levels=levels or [.236,.382,.5,.618,.764,1.0]; self.std_ddof=std_ddof
+        self.length=length; self.multiplier=multiplier; self.levels=levels or [1.0]; self.std_ddof=std_ddof
     def _records(self, candles):
         if hasattr(candles, 'to_dict'):
             return candles.to_dict('records')

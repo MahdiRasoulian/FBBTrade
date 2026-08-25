@@ -1,14 +1,17 @@
 from datetime import datetime, timezone
+from importlib import import_module, util
 from core.models.market import Candle, SymbolSpec, Tick
 
 class MT5Provider:
     def __init__(self):
         self.mt5 = None
     def connect(self):
-        try: import MetaTrader5 as mt5
-        except ImportError as exc: raise RuntimeError('MetaTrader5 package is required for live MT5 data') from exc
+        if util.find_spec('MetaTrader5') is None: raise RuntimeError('MetaTrader5 package is required for live MT5 data')
+        mt5 = import_module('MetaTrader5')
         if not mt5.initialize(): raise RuntimeError(f'MT5 initialize failed: {mt5.last_error()}')
         self.mt5 = mt5
+    def is_connected(self)->bool:
+        return self.mt5 is not None
     def _api(self):
         if self.mt5 is None: self.connect()
         return self.mt5

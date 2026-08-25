@@ -10,11 +10,11 @@ from execution.mt5_executor import MT5Executor
 
 def test_complete_simulated_flow():
     df=[{'high':10,'low':8,'close':9,'volume':1},{'high':11,'low':9,'close':10,'volume':1},{'high':12,'low':10,'close':11,'volume':1}]
-    fbb=FBBCalculator(length=2,levels=[0.764]).calculate(df).frame
-    bands={'upper_0.764':10,'lower_0.764':8}
+    fbb=FBBCalculator(length=2,levels=[1.0]).calculate(df).frame
+    bands={'upper_1.000':10,'lower_1.000':8}
     now=datetime.now(timezone.utc)
-    events=FBBLevelDetector('XAUUSD','M5',[0.764]).detect(10.5,bands,now)
-    cfg=SimpleNamespace(trigger_levels=[0.764],max_tracking_bars=3,return_inside_required=True,setup_type='MEAN_REVERSION_REJECTION')
+    events=FBBLevelDetector('XAUUSD','M5',[1.0]).detect(10.5,bands,now)
+    cfg=SimpleNamespace(trigger_levels=[1.0],max_tracking_bars=3,return_inside_required=True,setup_type='MEAN_REVERSION_REJECTION')
     m=EntryMachine('XAUUSD','M5',cfg); [m.on_level_event(e) for e in events]
     sig=m.on_candle_close(9.9,bands,now)[0]
     spec=SymbolSpec('XAUUSD',.01,2,100,.01,100,.01,1,.01)

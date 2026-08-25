@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from core.models.market import SymbolSpec
 from core.models.trading import EntrySignal, TradeProposal
@@ -5,6 +6,8 @@ from utils.time import utc_now
 from .position_sizer import fixed_lot_size, lot_size_for_risk
 from .sl_engine import fixed_stop
 from .tp_engine import rr_take_profit
+from utils.observability import SECTIONS, section, fmt_value
+logger = logging.getLogger(__name__)
 class RiskManager:
     def __init__(self, account_equity:float, proposal_expiry_seconds:int=300): self.account_equity=account_equity; self.expiry=proposal_expiry_seconds
     def create_proposal(self, signal:EntrySignal, spec:SymbolSpec, risk_config)->TradeProposal:
@@ -14,4 +17,13 @@ class RiskManager:
         configured_lot=getattr(risk_config, 'fixed_lot', None)
         lot=fixed_lot_size(configured_lot, spec) if configured_lot is not None else lot_size_for_risk(risk_amount, signal.entry_price, sl, spec)
         now=utc_now()
-        return TradeProposal('TP-'+signal.signal_id, signal, round(sl,spec.digits), round(tp,spec.digits), lot, risk_config.risk_per_trade_percent, risk_amount, rr, now, now+timedelta(seconds=self.expiry))
+        proposal=TradeProposal('TP-'+signal.signal_id, signal, round(sl,spec.digits), round(tp,spec.digits), lot, risk_config.risk_per_trade_percent, risk_amount, rr, now, now+timedelta(seconds=self.expiry))
+        logger.info(section(SECTIONS['RISK'], '\n'.join([
+            'TRADE PROPOSAL',
+            f'Symbol={signal.symbol} | Side={signal.direction.value} | Entry={fmt_value(signal.entry_price)}',
+            f'Stop Loss={proposal.stop_loss} | Take Profit={proposal.take_profit} | Lot Size={proposal.lot_size}',
+            f'Risk Amount={fmt_value(proposal.risk_amount)} | Risk %={proposal.risk_percent:.2f} | R:R={proposal.rr_ratio:.2f}',
+            f'Stop model={risk_config.stop_loss.get("method", "UNKNOWN")} | TP model={risk_config.take_profit.get("method", "UNKNOWN")}',
+            f'ProposalId={proposal.proposal_id} | ExpiresAt={fmt_value(proposal.expires_at)}',
+        ])), extra={'event':'TRADE_PROPOSALS','symbol':signal.symbol,'proposal_id':proposal.proposal_id})
+        return proposal

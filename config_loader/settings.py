@@ -1,22 +1,20 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from importlib import import_module, util
 from typing import Any
 
-try:
-    import yaml  # type: ignore
-except ImportError:  # lightweight fallback for bundled examples
-    yaml = None
+yaml = import_module('yaml') if util.find_spec('yaml') is not None else None
 
 @dataclass
 class FBBConfig:
-    enabled: bool=True; length:int=200; source:str='hlc3'; multiplier:float=3.0; std_ddof:int=0; levels:list[float]=field(default_factory=lambda:[.236,.382,.5,.618,.764,1.0])
+    enabled: bool=True; length:int=200; source:str='hlc3'; multiplier:float=3.0; std_ddof:int=0; levels:list[float]=field(default_factory=lambda:[1.0])
 @dataclass
 class SymbolBlock: enabled:bool=True; name:str=''; mt5_symbol:str=''
 @dataclass
 class MarketConfig: timeframe:str='M5'; data_source:str='MT5'
 @dataclass
 class EntryConfig:
-    enabled:bool=True; setup_type:str='MEAN_REVERSION_REJECTION'; trigger_levels:list[float]=field(default_factory=lambda:[.618,.764,1.0]); min_penetration_points:float=0; atr_tolerance_multiplier:float=0.2; return_inside_required:bool=True; confirmation:str='CLOSED_CANDLE'; max_tracking_bars:int=3; duplicate_cooldown_seconds:int=900
+    enabled:bool=True; setup_type:str='MEAN_REVERSION_REJECTION'; trigger_levels:list[float]=field(default_factory=lambda:[1.0]); min_penetration_points:float=0; atr_tolerance_multiplier:float=0.2; return_inside_required:bool=True; confirmation:str='CLOSED_CANDLE'; max_tracking_bars:int=3; duplicate_cooldown_seconds:int=900
 @dataclass
 class RiskConfig: enabled:bool=True; risk_per_trade_percent:float=1.0; fixed_lot:float|None=None; stop_loss:dict[str,Any]=field(default_factory=lambda:{'method':'FIXED_POINTS','points':300}); take_profit:dict[str,Any]=field(default_factory=lambda:{'method':'RISK_REWARD','rr':2.0})
 @dataclass

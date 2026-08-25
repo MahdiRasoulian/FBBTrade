@@ -1,11 +1,12 @@
 app:
   name: FBBTrade
   log_level: INFO
+  log_file: logs/fbbtrade.log
   database_path: data/fbbtrade.db
   charts_dir: charts
   diagnostic_dir: diagnostics
 execution:
-  mode: PAPER
+  mode: LIVE
   require_human_approval: true
   proposal_expiry_seconds: 300
   max_price_deviation_points: 100

@@ -4,7 +4,7 @@ FBBTrade is a modular Python foundation for a semi-automated Fibonacci Bollinger
 
 ## Senior trader reasoning
 
-FBB can be useful on liquid M5 markets such as XAUUSD because VWMA anchors price to volume-weighted participation while standard-deviation bands describe current volatility expansion. Outer 0.618, 0.764, and 1.000 bands often mark stretched location, but a strong trend or news impulse can keep price pinned near an outer band. A touch is therefore only a market-location event. Reversal logic requires reaction evidence such as return inside the band or closed-candle rejection. The VWMA basis can act as a mean-reversion target when volatility normalizes, but trend context, session liquidity, spread, slippage, and gold news spikes can invalidate that assumption. This project preserves uncertain trading ideas as configuration rather than hard-coded claims.
+FBB can be useful on liquid M5 markets such as XAUUSD because VWMA anchors price to volume-weighted participation while standard-deviation bands describe current volatility expansion. The upper 1.000 FBB, VWMA basis, and lower 1.000 FBB define the only trading/reaction levels; the outer 1.000 bands mark stretched location, but a strong trend or news impulse can keep price pinned near an outer band. A touch is therefore only a market-location event. Reversal logic requires reaction evidence such as return inside the band or closed-candle rejection. The VWMA basis can act as a mean-reversion target when volatility normalizes, but trend context, session liquidity, spread, slippage, and gold news spikes can invalidate that assumption. This project preserves uncertain trading ideas as configuration rather than hard-coded claims.
 
 ## Architecture
 

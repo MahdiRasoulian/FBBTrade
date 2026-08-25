@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 import matplotlib.pyplot as plt
 from core.models.trading import TradeProposal
+from utils.observability import SECTIONS, section
+logger = logging.getLogger(__name__)
 
 class ChartService:
     def __init__(self, output_dir:str='charts'):
@@ -23,4 +26,4 @@ class ChartService:
         basis=[r.get('basis') for r in fbb_rows]
         if any(v is not None for v in basis): plt.plot(x, basis, label='VWMA basis', color='magenta')
         for y,label,color in [(proposal.signal.entry_price,'Entry','blue'),(proposal.stop_loss,'SL','red'),(proposal.take_profit,'TP','green')]: plt.axhline(y,label=label,color=color,linestyle='--')
-        plt.title(f'FBB Proposal {proposal.signal.symbol} {proposal.signal.timeframe} {proposal.signal.direction.value}'); plt.legend(fontsize=8); plt.tight_layout(); plt.savefig(path,dpi=140); plt.close(); return path
+        plt.title(f'FBB Proposal {proposal.signal.symbol} {proposal.signal.timeframe} {proposal.signal.direction.value}'); plt.legend(fontsize=8); plt.tight_layout(); plt.savefig(path,dpi=140); plt.close(); logger.info(section(SECTIONS['CHART_TELEGRAM'], f'[CHART]\nGenerated successfully\nPath={path}\nSymbol={proposal.signal.symbol}\nLevels={proposal.signal.trigger_level}\nEntry={proposal.signal.entry_price}\nSL={proposal.stop_loss}\nTP={proposal.take_profit}'), extra={'event':'CHART_GENERATION','symbol':proposal.signal.symbol,'proposal_id':proposal.proposal_id}); return path

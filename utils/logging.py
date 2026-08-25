@@ -5,7 +5,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
-_RESERVED = set(logging.LogRecord('', 0, '', 0, '', (), None).__dict__)
+_RESERVED = set(logging.LogRecord('', 0, '', 0, '', (), None).__dict__) | {'message', 'asctime'}
 
 class ContextFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:

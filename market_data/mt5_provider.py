@@ -9,6 +9,8 @@ class MT5Provider:
         except ImportError as exc: raise RuntimeError('MetaTrader5 package is required for live MT5 data') from exc
         if not mt5.initialize(): raise RuntimeError(f'MT5 initialize failed: {mt5.last_error()}')
         self.mt5 = mt5
+    def is_connected(self)->bool:
+        return self.mt5 is not None
     def _api(self):
         if self.mt5 is None: self.connect()
         return self.mt5

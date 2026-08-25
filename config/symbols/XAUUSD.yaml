@@ -1,0 +1,36 @@
+symbol:
+  enabled: true
+  name: XAUUSD
+  mt5_symbol: XAUUSD
+market:
+  timeframe: M5
+  data_source: MT5
+fbb:
+  enabled: true
+  length: 200
+  source: hlc3
+  multiplier: 3.0
+  std_ddof: 0
+  levels: [0.236, 0.382, 0.5, 0.618, 0.764, 1.0]
+entry:
+  enabled: true
+  setup_type: MEAN_REVERSION_REJECTION
+  trigger_levels: [0.618, 0.764, 1.0]
+  min_penetration_points: 0
+  return_inside_required: true
+  confirmation: CLOSED_CANDLE
+  max_tracking_bars: 3
+  duplicate_cooldown_seconds: 900
+risk:
+  enabled: true
+  risk_per_trade_percent: 1.0
+  stop_loss:
+    method: FIXED_POINTS
+    points: 300
+  take_profit:
+    method: RISK_REWARD
+    rr: 2.0
+execution:
+  enabled: true
+  mode: PAPER
+  require_human_approval: true

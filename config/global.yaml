@@ -1,0 +1,17 @@
+app:
+  name: FBBTrade
+  log_level: INFO
+  database_path: data/fbbtrade.db
+  charts_dir: charts
+  diagnostic_dir: diagnostics
+execution:
+  mode: PAPER
+  require_human_approval: true
+  proposal_expiry_seconds: 300
+  max_price_deviation_points: 100
+  max_spread_points: 80
+risk:
+  account_equity: 10000
+  max_total_risk_percent: 3.0
+telegram:
+  enabled: false

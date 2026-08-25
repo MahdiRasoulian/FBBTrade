@@ -148,6 +148,7 @@ class TradingRuntime:
                 self.db.store('trade_proposal', proposal.proposal_id, proposal.__dict__)
                 logger.info(section(SECTIONS['APPROVAL_EXECUTION'], f'[APPROVAL]\nProposal={proposal.proposal_id}\nStatus=PENDING_HUMAN_APPROVAL\nExecutionMode={self.global_cfg.execution.get("mode", "PAPER")}\nExecutionAttempted=NO'), extra={'event': 'HUMAN_APPROVAL', 'symbol': symbol, 'proposal_id': proposal.proposal_id})
                 await self.telegram.send_proposal(proposal, chart_path)
+                log_event(logger, logging.INFO, 'TELEGRAM', 'Proposal notification sent or printed', symbol=symbol, proposal_id=proposal.proposal_id)
 
 def _load_dotenv():
     if util.find_spec('dotenv') is None:

@@ -16,7 +16,10 @@ class EntryMachine:
             t.bars_seen+=1
             if t.bars_seen>self.config.max_tracking_bars:
                 t.state=EntryState.TIMEOUT; del self.trackers[name]; continue
-            inside = close_price < t.event.level_price if t.event.side is LevelSide.UPPER else close_price > t.event.level_price
+            band_key=f'{t.event.side.value.lower()}_{t.event.level:.3f}'
+            current_level_price=bands.get(band_key, t.event.level_price)
+            tolerance=float(bands.get('atr_tolerance', 0.0))
+            inside = close_price <= current_level_price+tolerance if t.event.side is LevelSide.UPPER else close_price >= current_level_price-tolerance
             if (not self.config.return_inside_required) or inside:
                 self.seq+=1; direction=Direction.SELL if t.event.side is LevelSide.UPPER else Direction.BUY
                 sid=f'FBB-{timestamp:%Y%m%d}-{self.symbol}-{self.seq:06d}'

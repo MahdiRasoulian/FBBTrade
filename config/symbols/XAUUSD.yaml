@@ -17,6 +17,7 @@ entry:
   setup_type: MEAN_REVERSION_REJECTION
   trigger_levels: [0.618, 0.764, 1.0]
   min_penetration_points: 0
+  atr_tolerance_multiplier: 0.2
   return_inside_required: true
   confirmation: CLOSED_CANDLE
   max_tracking_bars: 3
@@ -24,6 +25,7 @@ entry:
 risk:
   enabled: true
   risk_per_trade_percent: 1.0
+  fixed_lot: 0.01
   stop_loss:
     method: FIXED_POINTS
     points: 300

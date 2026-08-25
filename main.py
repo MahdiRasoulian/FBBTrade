@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import signal
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from signals.level_detector import FBBLevelDetector
 from storage.database import Database
 from telegram.bot import TelegramBot
 from utils.logging import configure_logging
+
+logger=logging.getLogger(__name__)
 
 @dataclass
 class SymbolRuntime:
@@ -45,8 +48,13 @@ class TradingRuntime:
         self.setup()
         poll=float(os.getenv('FBB_POLL_SECONDS','1.0'))
         while self.running:
-            await asyncio.gather(*(self.process_symbol(s) for s in self.symbols), return_exceptions=True)
+            await asyncio.gather(*(self.process_symbol_safely(s) for s in self.symbols))
             await asyncio.sleep(poll)
+    async def process_symbol_safely(self, rt:SymbolRuntime):
+        try:
+            await self.process_symbol(rt)
+        except Exception:
+            logger.exception('Symbol processing failed for %s', rt.config.symbol.name)
     async def process_symbol(self, rt:SymbolRuntime):
         tick=self.provider.latest_tick(rt.config.symbol.mt5_symbol)
         closed, forming=rt.candles.snapshot()
@@ -55,7 +63,9 @@ class TradingRuntime:
         fbb_result=rt.fbb.calculate(records)
         latest=fbb_result.frame[-1]
         bands={k:v for k,v in latest.items() if k.startswith(('upper_','lower_')) and v is not None}
-        for event in rt.detector.detect(tick.mid, bands, tick.timestamp):
+        tolerance=rt.candles.atr(closed)*float(getattr(rt.config.entry, 'atr_tolerance_multiplier', 0.0))
+        bands['atr_tolerance']=tolerance
+        for event in rt.detector.detect(tick.mid, bands, tick.timestamp, tolerance=tolerance):
             self.db.store('level_event', event.event_id, event.__dict__)
             rt.entry.on_level_event(event)
         if rt.candles.has_new_closed_candle(closed):
@@ -87,8 +97,19 @@ def main():
     print(f'Enabled symbols: {", ".join(s.symbol.name for s in symbols)}')
     runtime=TradingRuntime(global_cfg, symbols)
     loop=asyncio.new_event_loop(); asyncio.set_event_loop(loop)
+    def stop_runtime(*_):
+        runtime.running=False
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, setattr, runtime, 'running', False)
-    loop.run_until_complete(runtime.run())
+        try:
+            loop.add_signal_handler(sig, stop_runtime)
+        except (NotImplementedError, RuntimeError):
+            signal.signal(sig, stop_runtime)
+    try:
+        loop.run_until_complete(runtime.run())
+    except KeyboardInterrupt:
+        runtime.running=False
+        loop.run_until_complete(asyncio.sleep(0))
+    finally:
+        loop.close()
 
 if __name__=='__main__': main()

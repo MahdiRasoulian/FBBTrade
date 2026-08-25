@@ -17,3 +17,8 @@ def test_timeout():
     assert not m.on_candle_close(10.5,{},datetime.now(timezone.utc))
     assert not m.on_candle_close(10.5,{},datetime.now(timezone.utc))
     assert m.trackers=={}
+
+def test_confirmation_uses_current_band_with_atr_tolerance():
+    m=EntryMachine('XAUUSD','M5',cfg()); m.on_level_event(event())
+    sig=m.on_candle_close(10.3,{'upper_0.764':10.1,'atr_tolerance':0.25},datetime.now(timezone.utc))
+    assert sig and sig[0].direction.value=='SELL'

@@ -1,0 +1,1714 @@
+# Senior Trader + Senior Python Engineer Task
+
+## Build a Modular Fibonacci Bollinger Bands Interactive Trading System from Zero to Production-Ready ZIP
+
+You are acting simultaneously as:
+
+1. A **Senior XAUUSD discretionary/system trader**
+2. A **Senior quantitative trading-system architect**
+3. A **Senior Python engineer**
+4. A **Senior MT5 integration engineer**
+5. A **Senior risk-management engineer**
+6. A **Senior Telegram bot developer**
+7. A **Senior QA / testing engineer**
+
+Your task is to design and implement a complete, modular, production-quality Python trading system from zero and deliver the complete project as a **ZIP archive**.
+
+Do not treat this as a simple indicator implementation.
+
+The objective is to build a complete **Fibonacci Bollinger Bands (FBB) based semi-automated trading system with human approval through Telegram**.
+
+---
+
+# 1. CORE TRADING CONCEPT
+
+The primary trading concept is **Fibonacci Bollinger Bands (FBB)**.
+
+The original TradingView script supplied as the reference is:
+
+```pine
+study(shorttitle="FBB", title="Fibonacci Bollinger Bands", overlay=true)
+
+length = input(200, minval=1)
+src = input(hlc3, title="Source")
+mult = input(3.0, minval=0.001, maxval=50)
+
+basis = vwma(src, length)
+dev = mult * stdev(src, length)
+
+upper_1 = basis + (0.236 * dev)
+upper_2 = basis + (0.382 * dev)
+upper_3 = basis + (0.5 * dev)
+upper_4 = basis + (0.618 * dev)
+upper_5 = basis + (0.764 * dev)
+upper_6 = basis + (1 * dev)
+
+lower_1 = basis - (0.236 * dev)
+lower_2 = basis - (0.382 * dev)
+lower_3 = basis - (0.5 * dev)
+lower_4 = basis - (0.618 * dev)
+lower_5 = basis - (0.764 * dev)
+lower_6 = basis - (1 * dev)
+
+plot(basis, color=fuchsia, linewidth=2)
+
+p1 = plot(upper_1, color=white, linewidth=1, title="0.236")
+p2 = plot(upper_2, color=white, linewidth=1, title="0.382")
+p3 = plot(upper_3, color=white, linewidth=1, title="0.5")
+p4 = plot(upper_4, color=white, linewidth=1, title="0.618")
+p5 = plot(upper_5, color=white, linewidth=1, title="0.764")
+p6 = plot(upper_6, color=red, linewidth=2, title="1")
+
+p13 = plot(lower_1, color=white, linewidth=1, title="0.236")
+p14 = plot(lower_2, color=white, linewidth=1, title="0.382")
+p15 = plot(lower_3, color=white, linewidth=1, title="0.5")
+p16 = plot(lower_4, color=white, linewidth=1, title="0.618")
+p17 = plot(lower_5, color=white, linewidth=1, title="0.764")
+p18 = plot(lower_6, color=green, linewidth=2, title="1")
+```
+
+This script is the **mathematical reference implementation**.
+
+Do not blindly assume that the TradingView snippet contains a complete trading strategy. It is primarily an indicator calculation and visualization.
+
+The system you build must distinguish between:
+
+* indicator calculation
+* market event detection
+* entry setup
+* entry confirmation
+* risk calculation
+* trade proposal
+* human approval
+* execution
+
+These are separate responsibilities.
+
+---
+
+# 2. UNDERSTAND FBB CORRECTLY
+
+The FBB calculation is fundamentally:
+
+```text
+Source = HLC3
+
+Basis = VWMA(Source, Length)
+
+Deviation = Multiplier × StandardDeviation(Source, Length)
+
+Upper Level:
+Basis + FibonacciRatio × Deviation
+
+Lower Level:
+Basis - FibonacciRatio × Deviation
+```
+
+Default parameters:
+
+```text
+Length = 200
+Source = HLC3
+Multiplier = 3.0
+```
+
+Levels:
+
+```text
+0.236
+0.382
+0.500
+0.618
+0.764
+1.000
+```
+
+There are therefore 12 bands plus the central VWMA basis.
+
+Important:
+
+These are NOT classical Fibonacci retracement levels derived from a swing high and swing low.
+
+They are Fibonacci-scaled volatility bands around a VWMA.
+
+Do not confuse:
+
+```text
+Fibonacci Bollinger Bands
+```
+
+with:
+
+```text
+Fibonacci Swing Retracement
+```
+
+They are mathematically and conceptually different.
+
+---
+
+# 3. TRADING INTERPRETATION
+
+As a senior trader, understand the following before writing the trading logic.
+
+An FBB level is a **price-location / volatility event**, not automatically an entry signal.
+
+For example:
+
+```text
+Price reaches Upper 0.764
+```
+
+does NOT automatically mean:
+
+```text
+SELL
+```
+
+Likewise:
+
+```text
+Price reaches Lower 0.764
+```
+
+does NOT automatically mean:
+
+```text
+BUY
+```
+
+A strong trend can cause price to remain near or beyond an outer FBB band.
+
+Therefore the system must distinguish between:
+
+### A. Level Touch
+
+Price reaches or enters an FBB level.
+
+### B. Reaction
+
+Price reaches the level and demonstrates configured rejection/response behavior.
+
+### C. Confirmation
+
+The Entry Machine determines whether the reaction satisfies the configured entry rules.
+
+### D. Entry
+
+Only after confirmation should an Entry Signal be produced.
+
+The architecture must support these concepts independently.
+
+---
+
+# 4. PRIMARY OBJECTIVE
+
+Build a standalone Python application with this overall flow:
+
+```text
+CONFIG
+   ↓
+MT5 MARKET DATA
+   ↓
+FBB CALCULATION ENGINE
+   ↓
+FBB LEVEL/EVENT DETECTOR
+   ↓
+ENTRY STATE MACHINE
+   ↓
+ENTRY SIGNAL
+   ↓
+RISK / POSITION ENGINE
+   ↓
+TRADE PROPOSAL
+   ↓
+CHART GENERATION
+   ↓
+TELEGRAM HUMAN APPROVAL
+   ↓
+MT5 EXECUTION
+   ↓
+POSITION MONITORING
+```
+
+The system must be modular.
+
+Every major component must be replaceable and independently testable.
+
+---
+
+# 5. MODULAR ARCHITECTURE
+
+Design the project with clear separation of responsibilities.
+
+A suggested architecture is:
+
+```text
+project/
+│
+├── main.py
+│
+├── README.md
+├── requirements.txt
+├── .env.example
+├── .gitignore
+│
+├── config/
+│   ├── global.yaml
+│   └── symbols/
+│       ├── XAUUSD.yaml
+│       └── ...
+│
+├── core/
+│   ├── models/
+│   ├── events/
+│   ├── state_machine/
+│   └── exceptions/
+│
+├── market_data/
+│   ├── mt5_provider.py
+│   ├── market_data_service.py
+│   └── candle_manager.py
+│
+├── indicators/
+│   └── fbb/
+│       ├── calculator.py
+│       ├── levels.py
+│       ├── models.py
+│       └── validator.py
+│
+├── signals/
+│   ├── level_detector.py
+│   ├── signal_detector.py
+│   └── models.py
+│
+├── entry/
+│   ├── entry_machine.py
+│   ├── tracker.py
+│   ├── conditions.py
+│   └── models.py
+│
+├── risk/
+│   ├── risk_manager.py
+│   ├── position_sizer.py
+│   ├── sl_engine.py
+│   └── tp_engine.py
+│
+├── execution/
+│   ├── mt5_executor.py
+│   └── execution_validator.py
+│
+├── chart/
+│   └── chart_service.py
+│
+├── telegram/
+│   ├── bot.py
+│   ├── handlers.py
+│   ├── keyboards.py
+│   └── messages.py
+│
+├── storage/
+│   ├── database.py
+│   ├── signals.py
+│   └── trades.py
+│
+├── backtest/
+│   ├── engine.py
+│   └── data_provider.py
+│
+├── utils/
+│   ├── logging.py
+│   ├── time.py
+│   └── validation.py
+│
+└── tests/
+    ├── indicators/
+    ├── signals/
+    ├── entry/
+    ├── risk/
+    ├── execution/
+    └── integration/
+```
+
+You may improve this structure if you have a better senior-level architecture.
+
+Do not create unnecessary complexity merely for the sake of abstraction.
+
+---
+
+# 6. SYMBOL CONFIGURATION
+
+The system must support multiple symbols from day one.
+
+Do NOT hard-code XAUUSD logic throughout the code.
+
+The application must be capable of:
+
+```text
+XAUUSD
+XAGUSD
+BTCUSD
+EURUSD
+etc.
+```
+
+Each symbol must have its own configuration.
+
+For example:
+
+```text
+config/symbols/XAUUSD.yaml
+```
+
+The system must load symbol-specific settings dynamically.
+
+At minimum, configuration should support:
+
+```yaml
+symbol:
+  enabled: true
+  mt5_symbol: "XAUUSD"
+
+market:
+  timeframe: "M5"
+  data_source: "MT5"
+
+fbb:
+  enabled: true
+  length: 200
+  source: "hlc3"
+  multiplier: 3.0
+
+  levels:
+    - 0.236
+    - 0.382
+    - 0.500
+    - 0.618
+    - 0.764
+    - 1.000
+
+entry:
+  enabled: true
+
+risk:
+  enabled: true
+  risk_per_trade_percent: 1.0
+
+telegram:
+  enabled: true
+
+execution:
+  enabled: true
+  require_human_approval: true
+```
+
+Do not assume these are the final settings.
+
+Design a clean and extensible configuration schema.
+
+---
+
+# 7. MARKET DATA
+
+Use MetaTrader 5 as the initial live market-data provider.
+
+The MT5 layer must provide, as required:
+
+* Bid
+* Ask
+* Last price where available
+* Tick timestamp
+* OHLCV candles
+* Spread
+* Symbol information
+* Point
+* Digits
+* Contract size
+* Volume constraints
+* Minimum lot
+* Maximum lot
+* Lot step
+* Tick value
+* Tick size
+
+Do not mix MT5 API calls into the strategy code.
+
+The strategy should interact with an abstract market-data interface.
+
+This will allow future backtesting and alternative data providers.
+
+---
+
+# 8. LIVE PRICE PROCESSING
+
+The system must support real-time price monitoring.
+
+Do not only evaluate once every closed M5 candle.
+
+The architecture must allow the system to observe live ticks and detect when price enters an FBB level.
+
+However, clearly distinguish:
+
+```text
+LIVE TICK EVENT
+```
+
+from:
+
+```text
+CLOSED CANDLE CONFIRMATION
+```
+
+Entry rules may require closed-candle confirmation depending on configuration.
+
+Never introduce look-ahead bias.
+
+---
+
+# 9. FBB CALCULATION ENGINE
+
+Implement FBB as an independent calculation engine.
+
+It must calculate:
+
+```text
+HLC3
+VWMA
+Standard Deviation
+Deviation
+Upper 0.236
+Upper 0.382
+Upper 0.500
+Upper 0.618
+Upper 0.764
+Upper 1.000
+Lower 0.236
+Lower 0.382
+Lower 0.500
+Lower 0.618
+Lower 0.764
+Lower 1.000
+```
+
+The implementation must be deterministic and testable.
+
+The calculation engine must not:
+
+* place trades
+* send Telegram messages
+* calculate risk
+* make entry decisions
+
+It only calculates market/indicator state.
+
+---
+
+# 10. TRADINGVIEW PARITY
+
+This is critical.
+
+Before considering the FBB implementation complete, verify that Python calculations match the supplied TradingView formula as closely as mathematically possible.
+
+Pay particular attention to:
+
+* HLC3 definition
+* VWMA calculation
+* rolling window
+* standard deviation definition
+* population vs sample standard deviation
+* warm-up period
+* missing volume
+* candle alignment
+* timestamp alignment
+* broker timezone
+* current candle versus closed candle
+
+Do not silently choose an implementation when multiple interpretations exist.
+
+Investigate the mathematical behavior and document the choice.
+
+Create tests demonstrating parity.
+
+---
+
+# 11. FBB EVENT DETECTOR
+
+Create a separate component that detects events such as:
+
+```text
+PRICE_ENTERED_UPPER_0.618
+PRICE_ENTERED_UPPER_0.764
+PRICE_ENTERED_UPPER_1.000
+
+PRICE_ENTERED_LOWER_0.618
+PRICE_ENTERED_LOWER_0.764
+PRICE_ENTERED_LOWER_1.000
+```
+
+Potentially support all configured levels.
+
+The event detector must prevent duplicate events.
+
+For example, if price remains above Upper 0.764 for 20 ticks, it should not generate 20 independent level-entry events unless configuration explicitly requests that behavior.
+
+Distinguish:
+
+```text
+ENTERED
+REACHED
+EXITED
+RETESTED
+REJECTED
+```
+
+where appropriate.
+
+---
+
+# 12. ENTRY STATE MACHINE
+
+This is one of the most important parts of the project.
+
+A detected FBB level event should create an internal setup/tracking state.
+
+Example:
+
+```text
+IDLE
+  ↓
+FBB_LEVEL_DETECTED
+  ↓
+TRACKING
+  ↓
+REACTION_DETECTED
+  ↓
+CONFIRMATION
+  ↓
+ENTRY_CONFIRMED
+```
+
+Alternative outcomes:
+
+```text
+TRACKING
+  ↓
+INVALIDATED
+  ↓
+IDLE
+```
+
+or:
+
+```text
+TRACKING
+  ↓
+TIMEOUT
+  ↓
+IDLE
+```
+
+or:
+
+```text
+WAITING_APPROVAL
+  ↓
+REJECTED
+  ↓
+IDLE
+```
+
+The state machine must be explicit and observable.
+
+Do not hide state transitions inside random conditional statements across multiple files.
+
+---
+
+# 13. ENTRY LOGIC MUST BE CONFIGURABLE
+
+Do not hard-code one entry strategy.
+
+The Entry Machine must be designed so entry conditions can be configured.
+
+Examples of conditions that the architecture should be able to support:
+
+* price reaches FBB level
+* price penetrates level by minimum amount
+* price returns back inside the band
+* candle closes back inside
+* wick rejection
+* minimum rejection percentage
+* maximum excursion beyond level
+* maximum tracking time
+* minimum distance from level
+* spread filter
+* volatility filter
+* direction filter
+* optional confirmation candle
+* optional trend filter
+
+Do not activate every possible condition by default.
+
+Build a clean framework where conditions can be enabled/disabled through configuration.
+
+---
+
+# 14. DO NOT ASSUME THAT EVERY OUTER-BAND TOUCH IS A REVERSAL
+
+This is a major trading requirement.
+
+The system must not make the naive assumption:
+
+```text
+Upper band = SELL
+Lower band = BUY
+```
+
+Instead, treat FBB levels as market-location events.
+
+The Entry Machine must determine whether the subsequent price behavior satisfies the configured entry model.
+
+The architecture must also be capable of supporting continuation/breakout logic in the future.
+
+---
+
+# 15. ENTRY SIGNAL
+
+Only after the Entry Machine confirms all configured conditions should it create:
+
+```text
+EntrySignal
+```
+
+A signal should contain structured information such as:
+
+```text
+signal_id
+symbol
+timeframe
+direction
+trigger_level
+trigger_price
+entry_price
+timestamp
+setup_type
+reason
+confidence/score if applicable
+state
+```
+
+Do not pass loose dictionaries everywhere.
+
+Use typed models/dataclasses/Pydantic models where appropriate.
+
+---
+
+# 16. RISK MANAGEMENT
+
+The Risk Manager must be independent of the Entry Machine.
+
+After receiving an Entry Signal:
+
+```text
+Entry Signal
+      ↓
+Risk Manager
+      ↓
+Trade Proposal
+```
+
+The Risk Manager must calculate:
+
+* risk amount
+* lot size
+* stop loss
+* take profit
+* risk/reward
+* maximum allowed exposure
+* broker volume constraints
+
+It must be symbol-aware.
+
+Do not assume that XAUUSD and other instruments have the same pip/point/tick-value behavior.
+
+Use actual MT5 symbol specifications.
+
+---
+
+# 17. STOP LOSS / TAKE PROFIT
+
+SL and TP must be configurable.
+
+Support an extensible design for methods such as:
+
+```text
+Fixed distance
+Risk/Reward
+ATR-based
+FBB-based
+Swing-based
+Hybrid
+```
+
+Do not implement all of these blindly.
+
+Implement a clean strategy interface and a robust initial method based on configuration.
+
+The final Trade Proposal must explicitly contain:
+
+```text
+Entry
+SL
+TP
+Lot
+Risk $
+Risk %
+RR
+```
+
+---
+
+# 18. TRADE PROPOSAL
+
+Before execution, create a complete immutable trade proposal.
+
+Example:
+
+```text
+TradeProposal
+
+symbol: XAUUSD
+direction: SELL
+timeframe: M5
+
+trigger_level: UPPER_0.764
+
+signal_price: ...
+proposed_entry: ...
+
+stop_loss: ...
+take_profit: ...
+
+lot_size: ...
+risk_percent: ...
+risk_amount: ...
+
+rr_ratio: ...
+
+created_at: ...
+expires_at: ...
+
+status: WAITING_APPROVAL
+```
+
+This proposal is what Telegram should display.
+
+---
+
+# 19. CHART GENERATION
+
+Create a chart image for every trade proposal.
+
+The chart should clearly show:
+
+* price candles
+* FBB basis
+* FBB levels
+* triggered level
+* signal/trigger price
+* proposed entry
+* SL
+* TP
+* symbol
+* timeframe
+* timestamp
+
+The chart should be readable on a Telegram mobile screen.
+
+Do not make the chart unnecessarily cluttered.
+
+Use a dedicated chart service independent of Telegram.
+
+---
+
+# 20. TELEGRAM HUMAN APPROVAL
+
+Build an interactive Telegram bot.
+
+When a Trade Proposal is generated, Telegram must send:
+
+```text
+Symbol
+Timeframe
+Direction
+FBB Level
+Trigger Price
+Entry
+SL
+TP
+Lot Size
+Risk %
+RR
+Signal Time
+Expiration
+```
+
+plus the generated chart.
+
+Provide inline buttons such as:
+
+```text
+APPROVE BUY
+APPROVE SELL
+REJECT
+```
+
+The appropriate approval button must match the signal direction.
+
+For example, a SELL proposal should not present a misleading BUY action.
+
+The Telegram layer must not contain trading calculations.
+
+It should communicate with the core application through structured events/services.
+
+---
+
+# 21. HUMAN APPROVAL IS MANDATORY INITIALLY
+
+Initial configuration must be:
+
+```text
+require_human_approval = true
+```
+
+The system must NOT automatically execute a trade merely because the Entry Machine generated a signal.
+
+The execution flow is:
+
+```text
+Entry Signal
+     ↓
+Risk Manager
+     ↓
+Trade Proposal
+     ↓
+Telegram
+     ↓
+Human Approval
+     ↓
+Execution Validation
+     ↓
+MT5 Order
+```
+
+Automatic execution may be supported architecturally for future use, but it must not be the default.
+
+---
+
+# 22. EXECUTION VALIDATION
+
+When the user presses APPROVE, do not blindly execute the stale proposal.
+
+Revalidate:
+
+* signal still valid
+* proposal not expired
+* current market price
+* maximum price deviation
+* spread
+* trading session
+* symbol availability
+* account state
+* existing positions
+* risk limits
+* SL validity
+* TP validity
+* volume validity
+
+If the proposal is no longer valid, reject execution and notify Telegram.
+
+Example:
+
+```text
+TRADE EXPIRED
+
+Current price moved outside allowed execution range.
+No order was placed.
+```
+
+---
+
+# 23. POSITION MANAGEMENT
+
+After execution, maintain a position state.
+
+Track:
+
+* ticket
+* symbol
+* direction
+* entry
+* current price
+* SL
+* TP
+* volume
+* unrealized P/L
+* realized P/L after closure
+* timestamps
+
+Design the position-management layer so future features such as:
+
+* break-even
+* trailing stop
+* partial close
+* position alerts
+
+can be added without modifying the FBB engine.
+
+---
+
+# 24. MULTIPLE SYMBOLS
+
+The application must support multiple enabled symbols simultaneously.
+
+Example:
+
+```text
+XAUUSD
+XAGUSD
+BTCUSD
+```
+
+Each symbol should have its own:
+
+* timeframe
+* FBB length
+* multiplier
+* levels
+* entry configuration
+* risk configuration
+* execution configuration
+
+The core engines should remain generic.
+
+Do not duplicate the code for each symbol.
+
+---
+
+# 25. MULTIPLE SYMBOL INSTANCES
+
+Architect the runtime approximately as:
+
+```text
+Application
+   │
+   ├── XAUUSD Engine
+   │
+   ├── XAGUSD Engine
+   │
+   └── BTCUSD Engine
+```
+
+Each symbol instance maintains its own state machine.
+
+One symbol's setup must never accidentally interfere with another symbol.
+
+---
+
+# 26. BACKTESTABILITY
+
+Design the system so that the same FBB calculation and Entry Machine can eventually operate on historical data.
+
+Do not create completely separate strategy logic for live and backtest.
+
+The ideal architecture is:
+
+```text
+Historical Data ──┐
+                  ├──> Same Strategy Engine
+Live MT5 Data ────┘
+```
+
+This is critical for validating whether the apparent M5 XAUUSD performance is a genuine edge or merely visual coincidence/overfitting.
+
+---
+
+# 27. NO LOOK-AHEAD BIAS
+
+The system must never use future candles or future prices when generating historical signals.
+
+Clearly distinguish:
+
+```text
+closed candle
+```
+
+from:
+
+```text
+currently forming candle
+```
+
+and:
+
+```text
+live tick
+```
+
+Document the data availability rules.
+
+---
+
+# 28. LOGGING / OBSERVABILITY
+
+Create professional structured logging.
+
+The system should make it possible to understand:
+
+```text
+Market data received
+FBB calculated
+Level detected
+Entry Machine state
+Condition result
+Signal generated
+Risk calculated
+Trade proposal created
+Telegram sent
+Approval received
+Execution validation
+Order submitted
+Order result
+Position opened
+Position closed
+```
+
+Avoid meaningless excessive logs.
+
+Each signal/setup should have a correlation ID so that its lifecycle can be followed from detection to execution.
+
+Example:
+
+```text
+signal_id=FBB-20260825-XAUUSD-000123
+```
+
+---
+
+# 29. PERSISTENCE
+
+Persist important events and trades.
+
+At minimum support storage for:
+
+* signals
+* rejected setups
+* trade proposals
+* approvals/rejections
+* executions
+* closed trades
+* errors
+
+Use a robust local database such as SQLite initially unless there is a strong reason to use another solution.
+
+Do not make the architecture dependent on a remote database.
+
+---
+
+# 30. ERROR HANDLING
+
+The application must survive recoverable failures.
+
+Examples:
+
+* MT5 temporary disconnect
+* Telegram API error
+* missing candle
+* invalid symbol
+* malformed configuration
+* insufficient historical data
+* invalid lot size
+* execution rejection
+* stale proposal
+* unexpected state transition
+
+Do not allow one malformed event to terminate the entire application.
+
+Use clear exception boundaries and recovery behavior.
+
+---
+
+# 31. CONFIGURATION VALIDATION
+
+Validate configuration at startup.
+
+If configuration is invalid:
+
+```text
+FAIL FAST
+```
+
+with a useful error.
+
+Do not allow the system to silently run with incorrect trading parameters.
+
+---
+
+# 32. SECURITY
+
+Do not hard-code:
+
+* MT5 password
+* Telegram token
+* account credentials
+
+Use environment variables or a secure `.env` mechanism.
+
+Provide:
+
+```text
+.env.example
+```
+
+without real secrets.
+
+---
+
+# 33. TESTING REQUIREMENTS
+
+Before delivering the project, implement meaningful tests.
+
+At minimum:
+
+### FBB tests
+
+* HLC3
+* VWMA
+* standard deviation
+* FBB levels
+* warm-up behavior
+* edge cases
+
+### Event tests
+
+* level entry
+* level exit
+* duplicate prevention
+* multi-level behavior
+
+### Entry Machine tests
+
+* valid setup
+* invalid setup
+* timeout
+* rejection
+* state transitions
+
+### Risk tests
+
+* lot sizing
+* SL
+* TP
+* RR
+* broker constraints
+* invalid inputs
+
+### Execution tests
+
+* stale proposal
+* price deviation
+* invalid volume
+* rejection handling
+
+### Integration tests
+
+At least one complete simulated flow:
+
+```text
+Market Data
+→ FBB
+→ Level Event
+→ Entry Machine
+→ Entry Signal
+→ Risk
+→ Proposal
+→ Telegram event simulation
+→ Approval
+→ Execution simulation
+```
+
+Do not require a live MT5 account for automated unit tests.
+
+---
+
+# 34. PAPER / DRY-RUN MODE
+
+The application must have a safe development mode.
+
+For example:
+
+```yaml
+execution:
+  mode: paper
+```
+
+or:
+
+```text
+LIVE
+PAPER
+DISABLED
+```
+
+In PAPER mode:
+
+* receive real MT5 data
+* calculate real FBB
+* generate real signals
+* generate real risk
+* generate Telegram proposals
+* simulate execution
+* NEVER send a real order
+
+This is mandatory for safe testing.
+
+---
+
+# 35. LIVE MODE
+
+Only explicitly configured LIVE mode may submit real orders.
+
+At startup clearly display:
+
+```text
+EXECUTION MODE: LIVE
+```
+
+or:
+
+```text
+EXECUTION MODE: PAPER
+```
+
+Never make LIVE execution the accidental default.
+
+---
+
+# 36. TRADINGVIEW VISUAL VALIDATION
+
+Provide a way to compare Python-generated FBB levels against TradingView values.
+
+Ideally provide a diagnostic/export mechanism containing:
+
+```text
+timestamp
+close
+hlc3
+VWMA
+STD
+deviation
+all FBB levels
+```
+
+This will allow manual comparison with TradingView.
+
+If possible, create a diagnostic CSV export.
+
+---
+
+# 37. DO NOT OVERENGINEER THE INITIAL STRATEGY
+
+Do not add random indicators merely because they are common in trading systems.
+
+Do not automatically add:
+
+* RSI
+* MACD
+* EMA
+* stochastic
+* ADX
+* arbitrary trend filters
+* machine learning
+
+unless they are explicitly justified and configurable.
+
+The initial strategy should remain:
+
+```text
+FBB
++
+Price behavior around FBB
++
+Entry Machine
++
+Risk
+```
+
+The architecture should allow future filters without forcing them into version one.
+
+---
+
+# 38. TRADING LOGIC MUST BE DATA-DRIVEN
+
+Do not claim that FBB is profitable simply because it visually appears effective on XAUUSD M5.
+
+The system should make it possible to measure:
+
+* touches per level
+* reactions per level
+* successful reactions
+* failed reactions
+* continuation events
+* average excursion
+* maximum adverse excursion
+* maximum favorable excursion
+* win rate
+* expectancy
+* profit factor
+* average RR
+* performance by session
+* performance by symbol
+* performance by FBB level
+
+Do not optimize parameters until sufficient data exists.
+
+Avoid overfitting.
+
+---
+
+# 39. SENIOR TRADER REASONING REQUIREMENT
+
+Before implementation, reason through the strategy like an experienced XAUUSD trader.
+
+Explicitly analyze:
+
+* why FBB might work on M5
+* why outer bands can produce both reversals and continuation
+* why level touch is not sufficient
+* how volatility expansion changes interpretation
+* how price behaves around 0.618 / 0.764 / 1.0
+* how the VWMA basis can act as a mean/reversion target
+* why trend context matters
+* how false reactions occur
+* how spread and execution affect a gold strategy
+* how news/volatility spikes can invalidate mean-reversion assumptions
+
+Do not turn this analysis into arbitrary trading rules.
+
+Use it to design a robust, configurable framework.
+
+---
+
+# 40. INITIAL ENTRY MODEL
+
+Because the exact final trading rules have not yet been empirically established, design the Entry Machine so the strategy can evolve.
+
+A sensible initial conceptual flow is:
+
+```text
+PRICE ENTERS FBB LEVEL
+        ↓
+CREATE SETUP
+        ↓
+TRACK PRICE
+        ↓
+WAIT FOR CONFIGURED REACTION
+        ↓
+CHECK CONFIRMATION
+        ↓
+ENTRY SIGNAL
+```
+
+The actual thresholds and conditions must be configurable.
+
+Do not hard-code assumptions that cannot later be changed through configuration.
+
+---
+
+# 41. STATE SAFETY
+
+The system must prevent:
+
+* duplicate signals
+* duplicate Telegram messages
+* duplicate orders
+* repeated approval execution
+* simultaneous conflicting states
+* stale signals being executed
+* one signal being approved twice
+
+Approval callbacks must be idempotent.
+
+If the same Telegram approval is received twice, only one execution may occur.
+
+---
+
+# 42. TELEGRAM UX
+
+Make the Telegram messages professional and concise.
+
+A proposal should visually communicate:
+
+```text
+FBB TRADE PROPOSAL
+
+XAUUSD | M5
+
+SELL
+
+FBB Level:
+Upper 0.764
+
+Trigger:
+...
+
+Entry:
+...
+
+SL:
+...
+
+TP:
+...
+
+Risk:
+1.00%
+
+RR:
+2.00
+
+Expires:
+...
+```
+
+Attach the chart.
+
+Buttons:
+
+```text
+[ APPROVE SELL ]
+[ REJECT ]
+```
+
+After approval:
+
+```text
+APPROVED
+Execution validation in progress...
+```
+
+Then:
+
+```text
+ORDER EXECUTED
+
+Ticket:
+...
+Entry:
+...
+SL:
+...
+TP:
+...
+```
+
+or:
+
+```text
+EXECUTION REJECTED
+
+Reason:
+...
+```
+
+---
+
+# 43. DOCUMENTATION
+
+Create a high-quality `README.md`.
+
+It must explain:
+
+1. Project purpose
+2. Architecture
+3. FBB mathematics
+4. Trading concept
+5. Configuration
+6. Symbol configuration
+7. MT5 setup
+8. Telegram setup
+9. Environment variables
+10. Paper mode
+11. Live mode
+12. Running the application
+13. Testing
+14. Troubleshooting
+15. State machine
+16. Signal lifecycle
+17. Risk calculation
+18. Chart generation
+19. Backtest architecture
+20. Known limitations
+
+Also create a concise architecture document if useful.
+
+---
+$$$ IMPORTANT: DO NOT ASK FOR ROUTINE CONFIRMATION
+
+You are authorized to make reasonable engineering decisions.
+
+If something is not explicitly specified:
+
+1. choose a sensible professional default
+2. make it configurable
+3. document the assumption
+4. continue implementation
+
+Do not stop the project merely because a minor implementation detail is unspecified.
+
+However, do not invent trading claims.
+
+Where a trading rule is uncertain, preserve it as a configurable rule rather than pretending that it is empirically proven.
+
+---
+
+####. CODE QUALITY REQUIREMENTS
+
+Code must be:
+
+* modular
+* typed where practical
+* readable
+* testable
+* documented
+* deterministic where possible
+* free of duplicated business logic
+
+Avoid:
+
+* giant `main.py`
+* global mutable state
+* hard-coded symbol-specific conditions
+* hidden side effects
+* circular dependencies
+* mixing Telegram with strategy logic
+* mixing MT5 API calls with indicator calculations
+* mixing risk calculations with execution
+* unnecessary framework dependencies
+
+---
+
+***. FINAL DELIVERABLE
+
+The final deliverable must be a complete ZIP archive containing the entire project.
+
+The ZIP must include:
+
+```text
+source code
+configuration examples
+requirements.txt
+README.md
+.env.example
+tests
+sample data where useful
+diagnostic tools
+```
+
+Do NOT include:
+
+* real passwords
+* real Telegram tokens
+* sensitive credentials
+* unnecessary cache files
+* virtual environments
+* `__pycache__`
+* compiled artifacts
+* giant unnecessary datasets
+
+---
+
+###. EXPECTED COMPLETE LIFECYCLE
+
+The final system should be capable of this complete flow:
+
+```text
+MT5
+ ↓
+Live XAUUSD price
+ ↓
+Market Data Service
+ ↓
+FBB Calculation
+ ↓
+Price enters Upper 0.764
+ ↓
+FBB Level Event
+ ↓
+Entry Machine starts tracking
+ ↓
+Price behavior satisfies configured rejection rules
+ ↓
+Entry Signal
+ ↓
+Risk Manager calculates:
+    Entry
+    SL
+    TP
+    Lot
+    Risk
+    RR
+ ↓
+Trade Proposal
+ ↓
+Chart generated
+ ↓
+Telegram message + chart
+ ↓
+Human presses APPROVE SELL
+ ↓
+Execution validation
+ ↓
+MT5 SELL order
+ ↓
+Position opened
+ ↓
+Position monitored
+ ↓
+Position closed
+ ↓
+Trade stored
+ ↓
+Telegram execution/result notification
+```
+
+And rejection:
+
+```text
+Trade Proposal
+ ↓
+Telegram
+ ↓
+REJECT
+ ↓
+No MT5 order
+ ↓
+Store rejection
+```
+
+And expiry:
+
+```text
+Trade Proposal
+ ↓
+No approval before expiry
+ ↓
+EXPIRED
+ ↓
+No order
+```
+
+---
+
+The system must be designed so that any individual layer can later be upgraded, optimized, replaced, or tested without rewriting the rest of the system.
+
+Build the project with the mindset that this is the foundation of a serious multi-symbol trading platform, not a one-off TradingView indicator conversion.

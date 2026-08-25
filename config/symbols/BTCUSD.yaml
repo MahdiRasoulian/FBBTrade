@@ -1,0 +1,34 @@
+symbol:
+  enabled: false
+  name: BTCUSD
+  mt5_symbol: BTCUSD
+market:
+  timeframe: M5
+  data_source: MT5
+fbb:
+  enabled: true
+  length: 200
+  source: hlc3
+  multiplier: 3.0
+  std_ddof: 0
+  levels: [0.236, 0.382, 0.5, 0.618, 0.764, 1.0]
+entry:
+  enabled: true
+  setup_type: MEAN_REVERSION_REJECTION
+  trigger_levels: [0.764, 1.0]
+  return_inside_required: true
+  confirmation: CLOSED_CANDLE
+  max_tracking_bars: 3
+risk:
+  enabled: true
+  risk_per_trade_percent: 0.5
+  stop_loss:
+    method: FIXED_POINTS
+    points: 1000
+  take_profit:
+    method: RISK_REWARD
+    rr: 2.0
+execution:
+  enabled: true
+  mode: PAPER
+  require_human_approval: true
